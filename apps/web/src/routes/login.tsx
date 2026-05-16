@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { supabase } from "../lib/api";
 
 export const Route = createFileRoute("/login")({
   component: Login,
@@ -16,10 +17,29 @@ function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    navigate({ to: "/" });
+    setLoading(true);
+    setErrorMsg(null);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      navigate({ to: "/" });
+    } catch (err: any) {
+      console.error("Login Error:", err);
+      setErrorMsg(err.message || "Invalid email or password combination.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -35,6 +55,12 @@ function Login() {
         <div className="rounded-3xl border border-border bg-surface p-8">
           <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Welcome back</div>
           <h1 className="mt-2 font-display text-4xl">Sign in.</h1>
+
+          {errorMsg && (
+            <div className="mt-4 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">
+              {errorMsg}
+            </div>
+          )}
 
           <form onSubmit={submit} className="mt-8 space-y-5">
             <div className="space-y-2">
@@ -61,9 +87,17 @@ function Login() {
             </div>
             <button
               type="submit"
-              className="w-full rounded-xl bg-primary py-4 text-sm font-medium text-primary-foreground"
+              disabled={loading}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 text-sm font-medium text-primary-foreground disabled:opacity-50"
             >
-              Sign in
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Signing In...
+                </>
+              ) : (
+                "Sign in"
+              )}
             </button>
           </form>
 
