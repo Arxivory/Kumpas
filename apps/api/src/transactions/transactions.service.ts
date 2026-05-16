@@ -64,4 +64,47 @@ export class TransactionsService {
       },
     });
   }
+
+  async getDashboardSummary(userId: string) {
+    const currentCycle = await this.prisma.allowanceCycle.findFirst({
+      where: { userId },
+      orderBy: { startDate: 'desc' },
+      include: { transactions: true },
+    });
+
+    if (!currentCycle) {
+      return { hasActiveCycle: false };
+    }
+
+    const today = new Date();
+    const endDate = new Date(currentCycle.endDate);
+    
+    const timeDiff = endDate.getTime() - today.getTime();
+    const remainingDays = Math.max(0, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
+
+    const transactionSum = currentCycle.transactions.reduce(
+      (sum, tx) => sum + (tx.amount).toNumber(), 
+      0
+    );
+    const currentBalance = (currentCycle.amount).toNumber() + transactionSum;
+
+    const expenses = currentCycle.transactions.filter(tx => (tx.amount).toNumber() < 0);
+    const totalSpent = Math.abs(expenses.reduce((sum, tx) => sum + (tx.amount).toNumber(), 0));
+    
+    const startDate = new Date(currentCycle.startDate);
+    const daysElapsed = Math.max(1, Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+    const burnVelocity = totalSpent / daysElapsed;
+
+    return {
+      hasActiveCycle: true,
+      cycleId: currentCycle.id,
+      baselineAmount: currentCycle.amount,
+      cadence: currentCycle.cadence,
+      dropDate: currentCycle.endDate,
+      remainingDays,
+      currentBalance,
+      burnVelocity: burnVelocity || 0,
+      recentTransactions: currentCycle.transactions.slice(-5).reverse(),
+    };
+  }
 }

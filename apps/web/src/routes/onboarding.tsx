@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Compass } from "lucide-react";
+import { Compass, Loader2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { authenticatedFetch } from "../lib/api"; // Ensure this matches your utility path
 
 export const Route = createFileRoute("/onboarding")({
   component: Onboarding,
@@ -19,10 +20,37 @@ function Onboarding() {
   const [amount, setAmount] = useState("");
   const [cadence, setCadence] = useState<(typeof CADENCES)[number]>("Weekly");
   const [date, setDate] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    navigate({ to: "/" });
+    setLoading(true);
+    setErrorMsg(null);
+
+    // Map your human-friendly UI labels to the strict backend DTO layout
+    let backendCadence: "WEEKLY" | "BI_WEEKLY" | "MONTHLY" = "WEEKLY";
+    if (cadence === "Bi-Weekly") backendCadence = "BI_WEEKLY";
+    if (cadence === "Monthly") backendCadence = "MONTHLY";
+
+    try {
+      await authenticatedFetch("/transactions/cycle", {
+        method: "POST",
+        body: JSON.stringify({
+          amount: parseFloat(amount),
+          cadence: backendCadence,
+          startDate: new Date(date).toISOString(),
+        }),
+      });
+
+      // Navigate straight to the dashboard workspace once initialized!
+      navigate({ to: "/" });
+    } catch (err: any) {
+      console.error("Onboarding Cycle Failure:", err);
+      setErrorMsg(err.message || "Failed to initialize your allowance cycle.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -35,38 +63,46 @@ function Onboarding() {
           <span className="font-display text-2xl">Kumpas</span>
         </div>
 
-        <div className="rounded-3xl border border-border bg-surface p-8 sm:p-10">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Step 1 of 1</div>
-          <h1 className="mt-2 font-display text-4xl leading-tight sm:text-5xl">Set your allowance cycle.</h1>
-          <p className="mt-3 text-sm text-muted-foreground">
-            We'll calculate your runway from these three numbers.
+        <div className="rounded-3xl border border-border bg-surface p-8 sm:p-12">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Setup</div>
+          <h1 className="mt-2 font-display text-4xl sm:text-5xl">Your navigation system.</h1>
+          <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+            Kumpas tracks your money in matching intervals. Tell us how much you receive, how often it lands, and when your next cycle begins.
           </p>
+
+          {errorMsg && (
+            <div className="mt-4 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">
+              {errorMsg}
+            </div>
+          )}
 
           <form onSubmit={submit} className="mt-10 space-y-8">
             {/* Amount */}
             <div>
               <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Base allowance
+                Allowance Baseline Amount
               </label>
-              <div className="mt-3 flex items-baseline gap-2 border-b border-border pb-3">
-                <span className="font-display text-3xl text-muted-foreground">₱</span>
+              <div className="mt-4 flex items-baseline gap-2 border-b border-border pb-4 focus-within:border-primary">
+                <span className="font-display text-4xl text-muted-foreground">₱</span>
                 <input
+                  type="text"
                   inputMode="decimal"
                   required
+                  autoFocus
+                  placeholder="0.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-                  placeholder="2,500"
-                  className="w-full bg-transparent font-display text-5xl outline-none placeholder:text-muted-foreground/40"
+                  className="w-full bg-transparent font-display text-5xl outline-none placeholder:text-muted-foreground/20"
                 />
               </div>
             </div>
 
             {/* Cadence */}
-            <div>
+            <div className="space-y-3">
               <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Cadence
+                Cadence Interval
               </label>
-              <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-border bg-background p-1">
+              <div className="grid grid-cols-3 gap-2 rounded-xl border border-border bg-background p-1">
                 {CADENCES.map((c) => (
                   <button
                     type="button"
@@ -100,9 +136,17 @@ function Onboarding() {
 
             <button
               type="submit"
-              className="w-full rounded-xl bg-primary py-4 text-sm font-medium text-primary-foreground"
+              disabled={loading || !amount || !date}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-50"
             >
-              Start Navigating →
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Initializing Radar Engine...
+                </>
+              ) : (
+                "Start Navigating →"
+              )}
             </button>
           </form>
         </div>

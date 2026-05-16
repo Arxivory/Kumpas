@@ -1,8 +1,9 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { CreateManualTransactionDto } from './dto/create-manual-transaction.dto';
 import { CreateCycleDto } from './dto/create-cycle-dto';
 import { AuthGuard } from '@nestjs/passport';
+import { GetUser } from 'src/users/get-user.decorator';
 
 @Controller('transactions')
 export class TransactionsController {
@@ -27,5 +28,11 @@ export class TransactionsController {
       message: 'New Allowance Cycle initialized successfully.',
       data: cycle,
     };
+  }
+
+  @Get('dashboard-summary')
+  @UseGuards(AuthGuard('jwt'))
+  async getDashboardSummary(@GetUser() user: { userId: string }) {
+    return this.transactionsService.getDashboardSummary(user.userId);
   }
 }
