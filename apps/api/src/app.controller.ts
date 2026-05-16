@@ -1,4 +1,3 @@
-// apps/api/src/app.controller.ts
 import { Controller, Get } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 
@@ -9,25 +8,27 @@ export class AppController {
   @Get('seed-vince')
   async seedTestUser() {
     try {
-      // Let's use a simple, clean findFirst check to verify reading capabilities first!
-      // This eliminates payload validation friction entirely.
-      const existingUsers = await this.prisma.user.findMany({
-        take: 1,
+      const testUser = await this.prisma.user.upsert({
+        where: { email: 'vince.test@kumpas.dev' },
+        update: {},
+        create: {
+          id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+          email: 'vince.test@kumpas.dev',
+          username: 'vince_monorepo_test',
+          firstName: 'Vince',
+          lastName: 'Dev',
+        },
       });
       
       return {
-        status: 'Connection Validated!',
-        message: 'NestJS is actively querying your remote Supabase instance.',
-        countRetrieved: existingUsers.length,
-        snapshot: existingUsers,
+        status: 'Success!',
+        message: 'NestJS successfully talked to Supabase using Prisma 7!',
+        data: testUser,
       };
     } catch (error) {
       return {
-        status: 'Database Request Evaluated but Rejected',
-        message: error.message,
-        // This will print out the exact code (e.g., P2002, P2012) telling us exactly which column failed
-        prismaErrorCode: error.code, 
-        meta: error.meta,
+        status: 'Database Connection Error',
+        error: error.message,
       };
     }
   }
