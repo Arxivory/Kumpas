@@ -1,27 +1,33 @@
-import { Controller, Post, Get, Body, Param, NotFoundException } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, NotFoundException, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { GetUser } from './get-user.decorator';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post('profile')
-  async syncUserProfile(@Body() createProfileDto: CreateProfileDto) {
+  @UseGuards(AuthGuard('jwt'))
+  async syncUserProfile(
+    @Body() createProfileDto: CreateProfileDto,
+    @GetUser() authenticatedUser: { userId: string; email: string }
+  ) {
+    createProfileDto.id = authenticatedUser.userId;
+    createProfileDto.email = authenticatedUser.email;
+
     const profile = await this.usersService.syncProfile(createProfileDto);
     return {
       success: true,
-      message: 'User profile synchronized successfully.',
+      message: 'User profile authenticated and synchronized.',
       user: profile,
     };
   }
 
-  @Get('profile/:id')
-  async getUserProfile(@Param('id') id: string) {
-    const user = await this.usersService.getProfile(id);
-    if (!user) {
-      throw new NotFoundException(`User profile with ID ${id} not found.`);
-    }
-    return user;
+  @Get('profile')
+  @UseGuards(AuthGuard('jwt'))
+  async getUserProfile(@GetUser() authenticatedUser: { userId: string }) {
+    return this.usersService.getProfile(authenticatedUser.userId);
   }
 }
