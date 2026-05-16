@@ -37,9 +37,14 @@ function Register() {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Account registration failed to return user data.");
 
+      const immediateToken = authData.session?.access_token;
+
       await authenticatedFetch("/users/profile", {
         method: "POST",
+        tokenOverride: immediateToken,
         body: JSON.stringify({
+          id: authData.user.id,
+          email: authData.user.email,
           username,
           firstName,
           lastName,

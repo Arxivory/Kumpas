@@ -9,18 +9,11 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post('profile')
-  @UseGuards(AuthGuard('jwt'))
-  async syncUserProfile(
-    @Body() createProfileDto: CreateProfileDto,
-    @GetUser() authenticatedUser: { userId: string; email: string }
-  ) {
-    createProfileDto.id = authenticatedUser.userId;
-    createProfileDto.email = authenticatedUser.email;
-
+  async syncUserProfile(@Body() createProfileDto: CreateProfileDto) {
     const profile = await this.usersService.syncProfile(createProfileDto);
     return {
       success: true,
-      message: 'User profile authenticated and synchronized.',
+      message: 'User profile synchronized successfully.',
       user: profile,
     };
   }

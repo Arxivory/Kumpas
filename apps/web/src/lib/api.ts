@@ -7,9 +7,17 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const NEST_API_BASE = 'http://localhost:3000';
 
-export async function authenticatedFetch(endpoint: string, options: RequestInit = {}) {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
+interface CustomRequestInit extends RequestInit {
+  tokenOverride?: string | null;
+}
+
+export async function authenticatedFetch(endpoint: string, options: CustomRequestInit = {}) {
+  let token = options.tokenOverride;
+
+  if (!token) {
+    const { data: { session } } = await supabase.auth.getSession();
+    token = session?.access_token;
+  }
 
   const headers = {
     'Content-Type': 'application/json',
