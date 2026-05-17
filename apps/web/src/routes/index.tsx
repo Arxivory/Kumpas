@@ -43,7 +43,6 @@ function Dashboard() {
     async function fetchSummary() {
       try {
         const result = await authenticatedFetch("/transactions/dashboard-summary");
-        
         if (result.hasActiveCycle === false) {
           navigate({ to: "/onboarding" });
           return;
@@ -58,7 +57,27 @@ function Dashboard() {
         setLoading(false);
       }
     }
-    fetchSummary();
+
+    let subscription: any | null = null;
+    (async () => {
+      const { data: { session } } = await (await import("../lib/api")).supabase.auth.getSession();
+      if (session) {
+        await fetchSummary();
+        return;
+      }
+
+      const { data } = (await import("../lib/api")).supabase.auth.onAuthStateChange((_event, sess) => {
+        if (sess) {
+          fetchSummary();
+          data.subscription?.unsubscribe();
+        }
+      });
+      subscription = data?.subscription ?? null;
+    })();
+
+    return () => {
+      subscription?.unsubscribe?.();
+    };
   }, [navigate]);
 
   if (loading || !data) {

@@ -11,7 +11,8 @@ export class TransactionsController {
 
   @Post('manual')
   @UseGuards(AuthGuard('jwt'))
-  async logExpense(@Body() dto: CreateManualTransactionDto) {
+  async logExpense(@Body() dto: CreateManualTransactionDto, @GetUser() user: { userId: string }) {
+    dto.userId = user.userId;
     const transaction = await this.transactionsService.createManualEntry(dto);
     return {
       success: true,
@@ -21,7 +22,9 @@ export class TransactionsController {
   }
 
   @Post('cycle')
-  async initializeBudget(@Body() dto: CreateCycleDto) {
+  @UseGuards(AuthGuard('jwt'))
+  async initializeBudget(@Body() dto: CreateCycleDto, @GetUser() user: { userId: string }) {
+    dto.userId = user.userId;
     const cycle = await this.transactionsService.createAllowanceCycle(dto);
     return {
       success: true,
