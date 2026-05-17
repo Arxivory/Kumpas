@@ -3,6 +3,7 @@ import { UsersService } from './users.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from './get-user.decorator';
+import { SupabaseAuthGuard } from './supabase-auth.guard';
 
 @Controller('users')
 export class UsersController {
@@ -19,7 +20,7 @@ export class UsersController {
   }
 
   @Get('profile')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(SupabaseAuthGuard)
   async getUserProfile(@GetUser() authenticatedUser: { userId: string }) {
     return this.usersService.getProfile(authenticatedUser.userId);
   }

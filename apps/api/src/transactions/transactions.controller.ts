@@ -4,13 +4,14 @@ import { CreateManualTransactionDto } from './dto/create-manual-transaction.dto'
 import { CreateCycleDto } from './dto/create-cycle-dto';
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from 'src/users/get-user.decorator';
+import { SupabaseAuthGuard } from 'src/users/supabase-auth.guard';
 
 @Controller('transactions')
 export class TransactionsController {
   constructor(private readonly transactionsService: TransactionsService) {}
 
   @Post('manual')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(SupabaseAuthGuard)
   async logExpense(@Body() dto: CreateManualTransactionDto, @GetUser() user: { userId: string }) {
     dto.userId = user.userId;
     const transaction = await this.transactionsService.createManualEntry(dto);
@@ -22,7 +23,7 @@ export class TransactionsController {
   }
 
   @Post('cycle')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(SupabaseAuthGuard)
   async initializeBudget(@Body() dto: CreateCycleDto, @GetUser() user: { userId: string }) {
     dto.userId = user.userId;
     const cycle = await this.transactionsService.createAllowanceCycle(dto);
@@ -34,7 +35,7 @@ export class TransactionsController {
   }
 
   @Get('dashboard-summary')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(SupabaseAuthGuard)
   async getDashboardSummary(@GetUser() user: { userId: string }) {
     return this.transactionsService.getDashboardSummary(user.userId);
   }
