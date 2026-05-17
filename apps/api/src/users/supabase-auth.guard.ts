@@ -27,7 +27,6 @@ export class SupabaseAuthGuard implements CanActivate {
 
       const supabaseUser = await response.json();
       
-      // Inject the payload into request.user so your custom @GetUser() decorator extracts it seamlessly
       request.user = {
         userId: supabaseUser.id,
         email: supabaseUser.email,
