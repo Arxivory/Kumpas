@@ -131,7 +131,7 @@ function Ingest() {
                   : "border-border bg-background hover:border-muted"
               }`}
             >
-              <span className="text-2xl"><>{c.e}</></span>
+              <span className="text-2xl"><c.e/></span>
               <span className="text-xs font-medium">{c.label}</span>
             </button>
           ))}
