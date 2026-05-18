@@ -157,4 +157,58 @@ export class TransactionsService {
       recentTransactions: currentCycle.transactions.slice(-5).reverse(),
     };
   }
+
+  async reconcileWalletBalance(walletId: string, userId: string, newBalance: number) {
+    const now = new Date();
+
+    const activeCycle = await this.prisma.allowanceCycle.findFirst({
+      where: {
+        userId,
+        startDate: { lte: now },
+        endDate: { gte: now },
+      },
+    });
+
+    if (!activeCycle) {
+      throw new BadRequestException(
+        'Cannot reconcile balance without an active Allowance Cycle baseline.'
+      );
+    }
+
+    const wallet = await this.prisma.wallet.findFirst({
+      where: { id: walletId, userId },
+    });
+
+    if (!wallet) {
+      throw new NotFoundException('Target liquidity account not found.');
+    }
+
+    const currentBalanceNum = wallet.balance.toNumber();
+    const deltaAmount = newBalance - currentBalanceNum;
+
+    if (deltaAmount === 0) {
+      return wallet;
+    }
+
+    return await this.prisma.$transaction(async (tx) => {
+      const updatedWallet = await tx.wallet.update({
+        where: { id: walletId },
+        data: { balance: newBalance },
+      });
+
+      await tx.transaction.create({
+        data: {
+          userId,
+          cycleId: activeCycle.id,
+          walletId: wallet.id,
+          amount: deltaAmount,
+          category: 'ADJUSTMENT',
+          merchant: deltaAmount > 0 ? 'Balance Sync (Found Funds)' : 'Balance Sync (Missed Outflows)',
+          timestamp: now,
+        },
+      });
+
+      return updatedWallet;
+    });
+  }
 }

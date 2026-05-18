@@ -1,10 +1,11 @@
-import { Controller, Post, Body, UseGuards, Get } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, ParseUUIDPipe, Param, Patch } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { CreateManualTransactionDto } from './dto/create-manual-transaction.dto';
 import { CreateCycleDto } from './dto/create-cycle-dto';
 import { GetUser } from 'src/users/get-user.decorator';
 import { SupabaseAuthGuard } from 'src/users/supabase-auth.guard';
 import { CreateWalletDto } from './dto/create-wallet.dto';
+import { ReconcileWalletDto } from './dto/reconcile-wallet.dto';
 
 @Controller('transactions')
 export class TransactionsController {
@@ -56,5 +57,19 @@ export class TransactionsController {
       message: 'Wallet infrastructure added to ledger account successfully.',
       data: newWallet,
     };
+  }
+
+  @Patch('wallets/:id/reconcile')
+  @UseGuards(SupabaseAuthGuard)
+  async reconcileWallet(
+    @Param('id', new ParseUUIDPipe()) walletId: string,
+    @Body() dto: ReconcileWalletDto,
+    @GetUser() user: { userId: string }
+  ) {
+    return await this.transactionsService.reconcileWalletBalance(
+      walletId,
+      user.userId,
+      dto.newBalance
+    );
   }
 }
