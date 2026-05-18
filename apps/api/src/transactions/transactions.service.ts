@@ -120,10 +120,12 @@ export class TransactionsService {
     });
   }
 
-  async getDashboardSummary(userId: string) {
-    const currentCycle = await this.prisma.allowanceCycle.findFirst({
+  async getDashboardSummary(userId: string): Promise<any> {
+    const now = new Date();
+
+    let currentCycle = await this.prisma.allowanceCycle.findFirst({
       where: { userId },
-      orderBy: { startDate: 'desc' },
+      orderBy: { endDate: 'desc' },
       include: { transactions: true },
     });
 
@@ -131,31 +133,58 @@ export class TransactionsService {
       return { hasActiveCycle: false };
     }
 
+    if (now > new Date(currentCycle.endDate)) {
+      const nextStartDate = new Date(currentCycle.endDate);
+      
+      const nextEndDate = new Date(nextStartDate);
+      switch (currentCycle.cadence) {
+        case 'WEEKLY': nextEndDate.setDate(nextStartDate.getDate() + 7); break;
+        case 'BI_WEEKLY': nextEndDate.setDate(nextStartDate.getDate() + 14); break;
+        case 'MONTHLY': nextEndDate.setMonth(nextStartDate.getMonth() + 1); break;
+        default: nextEndDate.setDate(nextStartDate.getDate() + 7);
+      }
+
+      await this.prisma.allowanceCycle.create({
+        data: {
+          userId,
+          amount: currentCycle.amount,
+          cadence: currentCycle.cadence,
+          startDate: nextStartDate,
+          endDate: nextEndDate,
+        },
+      });
+
+      currentCycle = await this.prisma.allowanceCycle.findFirst({
+        where: { userId },
+        orderBy: { endDate: 'desc' },
+        include: { transactions: true },
+      });
+    }
+
     const wallets = await this.prisma.wallet.findMany({ where: { userId, isActive: true } });
     const totalCurrentBalance = wallets.reduce((sum, w) => sum + w.balance.toNumber(), 0);
 
-    const today = new Date();
-    const endDate = new Date(currentCycle.endDate);
-    const timeDiff = endDate.getTime() - today.getTime();
+    const endDate = new Date(currentCycle!.endDate);
+    const timeDiff = endDate.getTime() - now.getTime();
     const remainingDays = Math.max(0, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
 
-    const expenses = currentCycle.transactions.filter(tx => tx.amount.toNumber() < 0);
+    const expenses = currentCycle!.transactions.filter(tx => tx.amount.toNumber() < 0);
     const totalSpent = Math.abs(expenses.reduce((sum, tx) => sum + tx.amount.toNumber(), 0));
     
-    const startDate = new Date(currentCycle.startDate);
-    const daysElapsed = Math.max(1, Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+    const startDate = new Date(currentCycle!.startDate);
+    const daysElapsed = Math.max(1, Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
     const burnVelocity = totalSpent / daysElapsed;
 
     return {
       hasActiveCycle: true,
-      cycleId: currentCycle.id,
-      baselineAmount: currentCycle.amount,
-      cadence: currentCycle.cadence,
-      dropDate: currentCycle.endDate,
+      cycleId: currentCycle!.id,
+      baselineAmount: currentCycle!.amount,
+      cadence: currentCycle!.cadence,
+      dropDate: currentCycle!.endDate,
       remainingDays,
       currentBalance: totalCurrentBalance,
       burnVelocity: burnVelocity || 0,
-      recentTransactions: currentCycle.transactions.slice(-5).reverse(),
+      recentTransactions: currentCycle!.transactions.slice(-5).reverse(),
     };
   }
 
