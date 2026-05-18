@@ -11,6 +11,20 @@ CREATE TABLE "users" (
 );
 
 -- CreateTable
+CREATE TABLE "wallets" (
+    "id" UUID NOT NULL,
+    "user_id" UUID NOT NULL,
+    "name" TEXT NOT NULL DEFAULT 'New Wallet',
+    "is_main" BOOLEAN NOT NULL DEFAULT false,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "balance" DECIMAL(65,30) NOT NULL DEFAULT 0.00,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "wallets_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "allowance_cycles" (
     "id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
@@ -27,6 +41,7 @@ CREATE TABLE "transactions" (
     "id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
     "cycle_id" UUID NOT NULL,
+    "wallet_id" UUID NOT NULL,
     "amount" DECIMAL(10,2) NOT NULL,
     "category" TEXT NOT NULL,
     "merchant" TEXT,
@@ -60,7 +75,13 @@ CREATE INDEX "transactions_user_id_timestamp_idx" ON "transactions"("user_id", "
 CREATE INDEX "transactions_cycle_id_idx" ON "transactions"("cycle_id");
 
 -- CreateIndex
+CREATE INDEX "transactions_wallet_id_idx" ON "transactions"("wallet_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "financial_weather_user_id_key" ON "financial_weather"("user_id");
+
+-- AddForeignKey
+ALTER TABLE "wallets" ADD CONSTRAINT "wallets_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "allowance_cycles" ADD CONSTRAINT "allowance_cycles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -70,6 +91,9 @@ ALTER TABLE "transactions" ADD CONSTRAINT "transactions_user_id_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "transactions" ADD CONSTRAINT "transactions_cycle_id_fkey" FOREIGN KEY ("cycle_id") REFERENCES "allowance_cycles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_wallet_id_fkey" FOREIGN KEY ("wallet_id") REFERENCES "wallets"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "financial_weather" ADD CONSTRAINT "financial_weather_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

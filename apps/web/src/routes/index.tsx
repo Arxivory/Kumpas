@@ -160,20 +160,50 @@ function Dashboard() {
         
         {data.recentTransactions && data.recentTransactions.length > 0 ? (
           <div className="divide-y divide-border/60">
-            {data.recentTransactions.map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{tx.merchant}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{tx.category} • {new Date(tx.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}</p>
+            {data.recentTransactions.map((tx) => {
+              
+              const parseTransactionDate = (txObject: any): Date => {
+                const dynamicRawDate = txObject.timestamp || txObject.createdAt;
+                
+                if (!dynamicRawDate) {
+                  return new Date();
+                }
+
+                const parsed = Date.parse(dynamicRawDate);
+                if (!isNaN(parsed)) {
+                  return new Date(parsed);
+                }
+                
+                if (typeof dynamicRawDate === 'string') {
+                  const normalizedStr = dynamicRawDate.replace(" ", "T");
+                  const fallbackParsed = Date.parse(normalizedStr);
+                  if (!isNaN(fallbackParsed)) return new Date(fallbackParsed);
+                }
+
+                return new Date();
+              };
+
+              const txDate = parseTransactionDate(tx);
+
+              return (
+                <div key={tx.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{tx.merchant || "General Spend"}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {tx.category} • {txDate.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
+                    </p>
+                  </div>
+                  <span className={`font-display text-lg ${tx.amount < 0 ? "text-caution" : "text-safe"}`}>
+                    {tx.amount < 0 ? "-" : "+"} ₱{Math.abs(tx.amount).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
-                <span className={`font-display text-lg ${tx.amount < 0 ? "text-caution" : "text-safe"}`}>
-                  {tx.amount < 0 ? "-" : "+"} ₱{Math.abs(tx.amount).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground italic text-center py-4">No recent tracking movements logged. Head to Ingest to record your first spend!</p>
+          <p className="text-xs text-muted-foreground italic text-center py-4">
+            No recent tracking movements logged. Head to Ingest to record your first spend!
+          </p>
         )}
       </section>
 

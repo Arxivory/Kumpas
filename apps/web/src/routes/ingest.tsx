@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ViewHeader } from "@/components/ViewHeader";
-import { UploadCloud, Wallet as WalletIcon, Loader2, Utensils, Car, Home, BookOpen, AlertCircle } from "lucide-react";
+import { UploadCloud, Wallet as WalletIcon, Loader2, Utensils, Car, Home, BookOpen, AlertCircle, Calendar } from "lucide-react";
 import { useState, useEffect } from "react";
 import { authenticatedFetch } from "../lib/api";
 
@@ -33,6 +33,8 @@ function Ingest() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [merchant, setMerchant] = useState("");
   const [direction, setDirection] = useState<"out" | "in">("out");
+  
+  const [customDate, setCustomDate] = useState("");
   
   const [wallets, setWallets] = useState<WalletItem[]>([]);
   const [selectedWalletId, setSelectedWalletId] = useState<string>("");
@@ -85,6 +87,14 @@ function Ingest() {
     const numericAmount = parseFloat(amount);
     const finalAmount = direction === "out" ? -Math.abs(numericAmount) : Math.abs(numericAmount);
 
+    let finalTimestamp = new Date();
+    if (customDate) {
+      const selectedDate = new Date(customDate);
+      const now = new Date();
+      selectedDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+      finalTimestamp = selectedDate;
+    }
+
     try {
       await authenticatedFetch("/transactions/manual", {
         method: "POST",
@@ -93,12 +103,14 @@ function Ingest() {
           category: activeCategory,
           walletId: selectedWalletId,
           merchant: merchant.trim() || (direction === "out" ? "General Spend" : "Wallet Topup"),
+          timestamp: finalTimestamp.toISOString(),
         }),
       });
 
       setSuccessMsg("⚡ Transaction written securely to ledger!");
       setAmount("");
       setMerchant("");
+      setCustomDate("");
       
       if (direction === "out") {
         setActiveCategory(null);
@@ -126,7 +138,6 @@ function Ingest() {
       <section className="rounded-3xl border border-border bg-surface p-8">
         <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Manual input</div>
         
-        {/* Toggle directions */}
         <div className="mt-6 flex gap-2">
           <button
             onClick={() => handleDirectionChange("out")}
@@ -205,7 +216,24 @@ function Ingest() {
           />
         </div>
 
-        {/* CONDITIONAL RENDERING: Hide notes and category grids completely if mode is set to Inflow */}
+        {/* DATE INPUT SELECTOR: Integrated directly without changing schema */}
+        <div className="mt-6 space-y-2">
+          <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground/70" />
+            <span>Transaction Date (Optional)</span>
+          </label>
+          <input
+            type="date"
+            value={customDate}
+            max={new Date().toISOString().split("T")[0]}
+            onChange={(e) => setCustomDate(e.target.value)}
+            className="w-full max-w-xs rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary text-foreground"
+          />
+          <span className="block text-[10px] text-muted-foreground/60 italic">
+            Leave blank to log this transaction as happening right now.
+          </span>
+        </div>
+
         {direction === "out" && (
           <div className="animate-in fade-in slide-in-from-top-2 duration-200 space-y-8">
             {/* Merchant/Note */}
@@ -263,7 +291,7 @@ function Ingest() {
         </button>
       </section>
 
-      {/* Discarded automated tool components list, opacity muted */}
+      {/* Discarded automated tools list */}
       <div className="grid gap-6 sm:grid-cols-1 opacity-40 pointer-events-none">
         <section className="rounded-3xl border border-border bg-surface p-8">
           <div className="flex items-center gap-4">

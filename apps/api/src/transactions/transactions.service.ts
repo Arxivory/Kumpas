@@ -20,19 +20,19 @@ export class TransactionsService {
   }
 
   async createManualEntry(dto: CreateManualTransactionDto) {
-    const now = new Date();
+    const transactionTargetDate = dto.timestamp ? new Date(dto.timestamp) : new Date();
 
     const activeCycle = await this.prisma.allowanceCycle.findFirst({
       where: {
         userId: dto.userId,
-        startDate: { lte: now },
-        endDate: { gte: now },
+        startDate: { lte: transactionTargetDate },
+        endDate: { gte: transactionTargetDate },
       },
     });
 
     if (!activeCycle) {
       throw new BadRequestException(
-        'No active Allowance Cycle found. Set up your budget timeframe first.'
+        'No active Allowance Cycle found for the selected date. Set up your budget timeframe first.'
       );
     }
 
@@ -58,7 +58,7 @@ export class TransactionsService {
           amount: dto.amount,
           category: dto.category,
           merchant: dto.merchant || null,
-          timestamp: now,
+          timestamp: transactionTargetDate,
         },
       });
     });
@@ -114,7 +114,7 @@ export class TransactionsService {
 
   async getUserWallets(userId: string) {
     return await this.prisma.wallet.findMany({
-      where: { userId },
+      where: { userId, isActive: true },
       orderBy: [{ isMain: 'desc' }, { name: 'asc' }],
     });
   }
@@ -130,7 +130,7 @@ export class TransactionsService {
       return { hasActiveCycle: false };
     }
 
-    const wallets = await this.prisma.wallet.findMany({ where: { userId } });
+    const wallets = await this.prisma.wallet.findMany({ where: { userId, isActive: true } });
     const totalCurrentBalance = wallets.reduce((sum, w) => sum + w.balance.toNumber(), 0);
 
     const today = new Date();
@@ -209,6 +209,25 @@ export class TransactionsService {
       });
 
       return updatedWallet;
+    });
+  }
+
+  async archiveWallet(walletId: string, userId: string) {
+    const wallet = await this.prisma.wallet.findFirst({
+      where: { id: walletId, userId },
+    });
+
+    if (!wallet) {
+      throw new NotFoundException('Target liquidity vault not found.');
+    }
+
+    if (wallet.isMain) {
+      throw new BadRequestException('The Protected Core Main Wallet cannot be archived.');
+    }
+
+    return await this.prisma.wallet.update({
+      where: { id: walletId },
+      data: { isActive: false },
     });
   }
 }

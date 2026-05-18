@@ -18,6 +18,10 @@ export class CreateManualTransactionDto {
   walletId: string;
 
   @IsString()
+  @IsOptional()
+  timestamp?: string;
+
+  @IsString()
   @IsNotEmpty()
   userId: string;
 }

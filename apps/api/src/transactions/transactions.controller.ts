@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, ParseUUIDPipe, Param, Patch } from '@nestjs/common';
+import { Controller, Post, Body, Delete, UseGuards, Get, ParseUUIDPipe, Param, Patch } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { CreateManualTransactionDto } from './dto/create-manual-transaction.dto';
 import { CreateCycleDto } from './dto/create-cycle-dto';
@@ -71,5 +71,14 @@ export class TransactionsController {
       user.userId,
       dto.newBalance
     );
+  }
+
+  @Delete('wallets/:id')
+  @UseGuards(SupabaseAuthGuard)
+  async archiveWallet(
+    @Param('id', new ParseUUIDPipe()) walletId: string,
+    @GetUser() user: { userId: string }
+  ) {
+    return await this.transactionsService.archiveWallet(walletId, user.userId);
   }
 }
