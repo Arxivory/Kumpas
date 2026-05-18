@@ -3,6 +3,7 @@ import { ViewHeader } from "@/components/ViewHeader";
 import { CloudRain, TrendingUp, Settings2, X, Loader2, ArrowRightLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import { authenticatedFetch } from "../lib/api";
+import { WalletSection } from "@/components/WalletSection";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
@@ -38,6 +39,9 @@ function Dashboard() {
   const [editOpen, setEditOpen] = useState(false);
   const [baseline, setBaseline] = useState("");
   const [dropDate, setDropDate] = useState("");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const triggerDataRefresh = () => setRefreshTrigger((prev) => prev + 1);
 
   useEffect(() => {
     async function fetchSummary() {
@@ -78,7 +82,7 @@ function Dashboard() {
     return () => {
       subscription?.unsubscribe?.();
     };
-  }, [navigate]);
+  }, [navigate, refreshTrigger]);
 
   if (loading || !data) {
     return (
@@ -89,7 +93,6 @@ function Dashboard() {
     );
   }
 
-  // Determine financial weather alert states based on dynamic runway days
   const isStormy = data.remainingDays < 4;
 
   return (
@@ -145,7 +148,10 @@ function Dashboard() {
         </article>
       </div>
 
-      {/* Live Activity Ledger list (Replaces Graph layout) */}
+      {/* ABSOLUTE PLACEMENT: New Liquidity Asset Vault Grid Component Section */}
+      <WalletSection onWalletCreated={triggerDataRefresh} />
+
+      {/* Live Activity Ledger list */}
       <section className="rounded-3xl border border-border bg-surface p-8">
         <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-6">
           <ArrowRightLeft className="h-3 w-3" />
