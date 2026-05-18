@@ -1,6 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ViewHeader } from "@/components/ViewHeader";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
+import { authenticatedFetch } from "../lib/api";
 
 export const Route = createFileRoute("/simulator")({
   component: Simulator,
@@ -12,22 +14,76 @@ export const Route = createFileRoute("/simulator")({
   }),
 });
 
-const BASE_RUNWAY = 18;
-const DAILY_SPEND = 1430;
+interface SimulatorMetrics {
+  remainingDays: number;
+  burnVelocity: number;
+  currentBalance: number;
+}
 
 function Simulator() {
+  const navigate = useNavigate();
+  const [metrics, setMetrics] = useState<SimulatorMetrics | null>(null);
+  const [loading, setLoading] = useState(true);
   const [shock, setShock] = useState(0);
 
+  useEffect(() => {
+    async function fetchLiveMetrics() {
+      try {
+        const result = await authenticatedFetch("/transactions/dashboard-summary");
+        if (result.hasActiveCycle === false) {
+          navigate({ to: "/onboarding" });
+          return;
+        }
+        setMetrics({
+          remainingDays: result.remainingDays,
+          burnVelocity: result.burnVelocity || 1,
+          currentBalance: result.currentBalance,
+        });
+      } catch (err) {
+        console.error("Failed to load simulator matrix engine:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    let subscription: any | null = null;
+    (async () => {
+      const { data: { session } } = await (await import("../lib/api")).supabase.auth.getSession();
+      if (session) {
+        await fetchLiveMetrics();
+        return;
+      }
+
+      const { data } = (await import("../lib/api")).supabase.auth.onAuthStateChange((_event, sess) => {
+        if (sess) {
+          fetchLiveMetrics();
+          data.subscription?.unsubscribe();
+        }
+      });
+      subscription = data?.subscription ?? null;
+    })();
+
+    return () => {
+      subscription?.unsubscribe?.();
+    };
+  }, [navigate]);
+
+  const baseRunway = metrics?.remainingDays ?? 0;
+  const dailySpend = metrics?.burnVelocity ?? 1;
+  const maxShockLimit = metrics ? Math.max(1000, Math.ceil(metrics.currentBalance)) : 5000;
+
   const { runway, status } = useMemo(() => {
-    const days = Math.max(0, BASE_RUNWAY - shock / DAILY_SPEND);
+    const days = Math.max(0, baseRunway - shock / dailySpend);
     const r = Math.round(days);
     let s: { label: string; tone: "safe" | "caution" | "risk"; emoji: string; sub: string };
+    
     if (r >= 14) s = { label: "Clear skies", tone: "safe", emoji: "☀️", sub: "Plenty of runway. Safe to proceed." };
     else if (r >= 7) s = { label: "Overcast", tone: "caution", emoji: "⛅", sub: "You'll feel the pinch by week's end." };
     else if (r >= 3) s = { label: "Storm warning", tone: "caution", emoji: "🌩️", sub: "Cut discretionary spend now." };
     else s = { label: "Flash flood warning", tone: "risk", emoji: "🌊", sub: "Critical. You will not make the next allowance." };
+    
     return { runway: r, status: s };
-  }, [shock]);
+  }, [shock, baseRunway, dailySpend]);
 
   const toneClasses: Record<string, string> = {
     safe: "border-safe/40 bg-safe/10 text-foreground",
@@ -35,7 +91,16 @@ function Simulator() {
     risk: "border-risk/40 bg-risk/10 text-risk",
   };
 
-  const pct = (shock / 5000) * 100;
+  if (loading || !metrics) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Calibrating Simulation Engine...</p>
+      </div>
+    );
+  }
+
+  const pct = (shock / maxShockLimit) * 100;
 
   return (
     <div className="space-y-10">
@@ -56,7 +121,7 @@ function Simulator() {
           <input
             type="range"
             min={0}
-            max={5000}
+            max={maxShockLimit}
             step={50}
             value={shock}
             onChange={(e) => setShock(Number(e.target.value))}
@@ -71,8 +136,8 @@ function Simulator() {
           />
           <div className="mt-3 flex justify-between text-[11px] text-muted-foreground">
             <span>₱0</span>
-            <span>₱2,500</span>
-            <span>₱5,000</span>
+            <span>₱{(maxShockLimit / 2).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            <span>₱{maxShockLimit.toLocaleString()}</span>
           </div>
         </div>
       </section>
@@ -88,11 +153,11 @@ function Simulator() {
           <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-border">
             <div
               className="h-full rounded-full bg-primary transition-all duration-300"
-              style={{ width: `${(runway / BASE_RUNWAY) * 100}%` }}
+              style={{ width: `${baseRunway > 0 ? (runway / baseRunway) * 100 : 0}%` }}
             />
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            From <span className="line-through">{BASE_RUNWAY} days</span> baseline.
+            From <span className="line-through">{baseRunway} days</span> baseline.
           </p>
         </div>
 
