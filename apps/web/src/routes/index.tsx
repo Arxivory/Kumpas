@@ -17,6 +17,7 @@ export const Route = createFileRoute("/")({
 
 interface DashboardData {
   hasActiveCycle: boolean;
+  cycleId?: string;
   baselineAmount: number;
   cadence: string;
   dropDate: string;
@@ -40,6 +41,9 @@ function Dashboard() {
   const [baseline, setBaseline] = useState("");
   const [dropDate, setDropDate] = useState("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const triggerDataRefresh = () => setRefreshTrigger((prev) => prev + 1);
 
@@ -83,6 +87,31 @@ function Dashboard() {
       subscription?.unsubscribe?.();
     };
   }, [navigate, refreshTrigger]);
+
+  const handleSaveChanges = async () => {
+    if (!data?.cycleId || !baseline || !dropDate) return;
+    
+    setIsSaving(true);
+    setSaveError(null);
+    
+    try {
+      await authenticatedFetch(`/transactions/cycle/${data.cycleId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          amount: parseFloat(baseline),
+          endDate: new Date(dropDate).toISOString(),
+        }),
+      });
+      
+      setEditOpen(false);
+      triggerDataRefresh();
+    } catch (err: any) {
+      console.error("Failed to reconfigure cycle context:", err);
+      setSaveError(err.message || "Failed to commit ledger timeline change.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (loading || !data) {
     return (
@@ -148,7 +177,6 @@ function Dashboard() {
         </article>
       </div>
 
-      {/* ABSOLUTE PLACEMENT: New Liquidity Asset Vault Grid Component Section */}
       <WalletSection onWalletCreated={triggerDataRefresh} />
 
       {/* Live Activity Ledger list */}
@@ -161,25 +189,18 @@ function Dashboard() {
         {data.recentTransactions && data.recentTransactions.length > 0 ? (
           <div className="divide-y divide-border/60">
             {data.recentTransactions.map((tx) => {
-              
               const parseTransactionDate = (txObject: any): Date => {
                 const dynamicRawDate = txObject.timestamp || txObject.createdAt;
-                
-                if (!dynamicRawDate) {
-                  return new Date();
-                }
+                if (!dynamicRawDate) return new Date();
 
                 const parsed = Date.parse(dynamicRawDate);
-                if (!isNaN(parsed)) {
-                  return new Date(parsed);
-                }
+                if (!isNaN(parsed)) return new Date(parsed);
                 
                 if (typeof dynamicRawDate === 'string') {
                   const normalizedStr = dynamicRawDate.replace(" ", "T");
                   const fallbackParsed = Date.parse(normalizedStr);
                   if (!isNaN(fallbackParsed)) return new Date(fallbackParsed);
                 }
-
                 return new Date();
               };
 
@@ -215,11 +236,16 @@ function Dashboard() {
               <h2 className="font-display text-2xl">Cycle Settings</h2>
               <button
                 onClick={() => setEditOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-background border border-border text-muted-foreground"
+                disabled={isSaving}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-background border border-border text-muted-foreground disabled:opacity-50"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
+
+            {saveError && (
+              <div className="mt-4 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">{saveError}</div>
+            )}
 
             <div className="mt-8 space-y-6">
               <div>
@@ -230,9 +256,10 @@ function Dashboard() {
                   <span className="font-display text-xl text-muted-foreground">₱</span>
                   <input
                     type="text"
+                    disabled={isSaving}
                     value={baseline}
                     onChange={(e) => setBaseline(e.target.value.replace(/[^0-9.]/g, ""))}
-                    className="w-full bg-transparent font-display text-2xl outline-none"
+                    className="w-full bg-transparent font-display text-2xl outline-none disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -243,18 +270,27 @@ function Dashboard() {
                 </label>
                 <input
                   type="date"
+                  disabled={isSaving}
                   value={dropDate}
                   onChange={(e) => setDropDate(e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary"
+                  className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary disabled:opacity-50"
                 />
               </div>
 
               <button
                 type="button"
-                onClick={() => setEditOpen(false)}
-                className="w-full rounded-xl bg-primary py-3.5 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+                onClick={handleSaveChanges}
+                disabled={isSaving || !baseline || !dropDate}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-40"
               >
-                Save changes
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Recalculating timeline analytics...
+                  </>
+                ) : (
+                  "Save changes"
+                )}
               </button>
             </div>
           </div>

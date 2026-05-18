@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma.service';
 import { CreateManualTransactionDto } from './dto/create-manual-transaction.dto';
 import { CreateCycleDto } from './dto/create-cycle-dto';
 import { CreateWalletDto } from './dto/create-wallet.dto';
+import { UpdateCycleDto } from './dto/update-cycle.dto';
 
 @Injectable()
 export class TransactionsService {
@@ -228,6 +229,35 @@ export class TransactionsService {
     return await this.prisma.wallet.update({
       where: { id: walletId },
       data: { isActive: false },
+    });
+  }
+
+  async updateActiveCycle(cycleId: string, userId: string, dto: UpdateCycleDto) {
+    const currentCycle = await this.prisma.allowanceCycle.findFirst({
+      where: { id: cycleId, userId },
+    });
+
+    if (!currentCycle) {
+      throw new NotFoundException('No active budget cycle configuration found.');
+    }
+
+    const targetEnd = new Date(dto.endDate);
+    const targetStart = new Date(targetEnd);
+
+    switch (currentCycle.cadence) {
+      case 'WEEKLY': targetStart.setDate(targetEnd.getDate() - 7); break;
+      case 'BI_WEEKLY': targetStart.setDate(targetEnd.getDate() - 14); break;
+      case 'MONTHLY': targetStart.setMonth(targetEnd.getMonth() - 1); break;
+      default: targetStart.setDate(targetEnd.getDate() - 7);
+    }
+
+    return await this.prisma.allowanceCycle.update({
+      where: { id: cycleId },
+      data: {
+        amount: dto.amount,
+        startDate: targetStart,
+        endDate: targetEnd,
+      },
     });
   }
 }

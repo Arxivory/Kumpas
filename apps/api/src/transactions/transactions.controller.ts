@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Delete, UseGuards, Get, ParseUUIDPipe, Param, Patch } from '@nestjs/common';
+import { Controller, Post, Body, Delete, UseGuards, Get, ParseUUIDPipe, Param, Patch, Request } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { CreateManualTransactionDto } from './dto/create-manual-transaction.dto';
 import { CreateCycleDto } from './dto/create-cycle-dto';
@@ -6,6 +6,7 @@ import { GetUser } from 'src/users/get-user.decorator';
 import { SupabaseAuthGuard } from 'src/users/supabase-auth.guard';
 import { CreateWalletDto } from './dto/create-wallet.dto';
 import { ReconcileWalletDto } from './dto/reconcile-wallet.dto';
+import { UpdateCycleDto } from './dto/update-cycle.dto';
 
 @Controller('transactions')
 export class TransactionsController {
@@ -80,5 +81,15 @@ export class TransactionsController {
     @GetUser() user: { userId: string }
   ) {
     return await this.transactionsService.archiveWallet(walletId, user.userId);
+  }
+
+  @Patch('cycle/:id')
+  @UseGuards(SupabaseAuthGuard)
+  async updateCycle(
+    @Param('id') cycleId: string,
+    @Request() req,
+    @Body() dto: UpdateCycleDto,
+  ) {
+    return await this.transactionsService.updateActiveCycle(cycleId, req.user.id, dto);
   }
 }
