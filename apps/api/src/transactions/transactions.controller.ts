@@ -98,4 +98,10 @@ export class TransactionsController {
   async getQuantAnalytics(@Request() req) {
     return await this.transactionsService.calculateQuantMetrics(req.user.id);
   }
+
+  @Get('behavioral-dataset')
+  @UseGuards(SupabaseAuthGuard)
+  async getBehavioralDataset(@Request() req) {
+    return await this.transactionsService.getMlTrainingData(req.user.id);
+  }
 }

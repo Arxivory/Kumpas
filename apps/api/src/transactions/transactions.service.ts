@@ -23,26 +23,25 @@ export class TransactionsService {
     });
 
     if (!currentCycle) {
-      throw new NotFoundException('No active cycle tracking config found.');
+      throw new Error('No active allowance cycle found.');
+    }
+
+    const trainingData = await this.getMlTrainingData(userId);
+    if (trainingData.length >= 5) {
+      try {
+        await firstValueFrom(
+          this.httpService.post('http://127.0.0.1:8000/analytics/train-profile', {
+            transactions: trainingData,
+          })
+        );
+      } catch (err) {
+        console.error('ML Profile Training Step Skipped:', err.message);
+      }
     }
 
     const historyEntries = await this.prisma.transaction.findMany({
-      where: {
-        userId,
-        amount: { lt: 0 },
-      },
-      orderBy: { timestamp: 'asc' },
+      where: { userId, amount: { lt: 0 } },
     });
-
-    if (historyEntries.length === 0) {
-      return {
-        survivalProbability: 1.0,
-        expectedDepletionDay: null,
-        riskStatus: 'CLEAR_SKIES',
-        driftMu: 0,
-        volatilitySigma: 0,
-      };
-    }
 
     const dailyMap: Record<string, number> = {};
     historyEntries.forEach((tx) => {
@@ -51,16 +50,16 @@ export class TransactionsService {
     });
 
     const dailySpends = Object.values(dailyMap);
-
-    const totalDays = dailySpends.length;
-    const driftMu = dailySpends.reduce((a, b) => a + b, 0) / totalDays;
-
-    const variance = dailySpends.reduce((sum, val) => sum + Math.pow(val - driftMu, 2), 0) / totalDays;
+    const driftMu = dailySpends.length > 0 ? dailySpends.reduce((a, b) => a + b, 0) / dailySpends.length : 0;
+    const variance = dailySpends.length > 0 ? dailySpends.reduce((sum, val) => sum + Math.pow(val - driftMu, 2), 0) / dailySpends.length : 0;
     const volatilitySigma = Math.sqrt(variance);
 
+    const cycleStart = new Date(currentCycle.startDate);
+    const timeFromStart = now.getTime() - cycleStart.getTime();
+    const currentDayOfCycle = Math.max(0, Math.floor(timeFromStart / (1000 * 60 * 60 * 24)));
+
     const targetEnd = new Date(currentCycle.endDate);
-    const timeDiff = targetEnd.getTime() - now.getTime();
-    const daysToDrop = Math.max(0, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
+    const daysToDrop = Math.max(0, Math.ceil((targetEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
 
     const wallets = await this.prisma.wallet.findMany({ where: { userId, isActive: true } });
     const initialBalance = wallets.reduce((sum, w) => sum + Number(w.balance), 0);
@@ -72,22 +71,22 @@ export class TransactionsService {
           drift_mu: driftMu,
           volatility_sigma: volatilitySigma,
           days_to_drop: daysToDrop,
+          current_day_of_cycle: currentDayOfCycle,
+          current_day_of_week: now.getDay(),
         })
       );
 
-      const pythonData = response.data;
-
       return {
-        survivalProbability: pythonData.survival_probability,
-        expectedDepletionDay: pythonData.expected_depletion_day,
-        riskStatus: pythonData.risk_status,
+        survivalProbability: response.data.survival_probability,
+        expectedDepletionDay: response.data.expected_depletion_day,
+        riskStatus: response.data.risk_status,
         driftMu,
         volatilitySigma,
       };
     } catch (error) {
-      console.error('Python Analytics Node Connection Failed:', error.message);
+      console.error('Analytics Sidecar Connection Interrupted:', error.message);
       return {
-        survivalProbability: initialBalance / (driftMu || 1) >= daysToDrop ? 0.90 : 0.20,
+        survivalProbability: initialBalance / (driftMu || 1) >= daysToDrop ? 0.95 : 0.15,
         expectedDepletionDay: Math.round(initialBalance / (driftMu || 1)),
         riskStatus: 'OVERCAST_TURBULENCE',
         driftMu,
@@ -374,6 +373,42 @@ export class TransactionsService {
         startDate: targetStart,
         endDate: targetEnd,
       },
+    });
+  }
+
+  async getMlTrainingData(userId: string) {
+    const transactions = await this.prisma.transaction.findMany({
+      where: {
+        userId,
+        amount: { lt: 0 },
+      },
+      include: {
+        cycle: true,
+      },
+      orderBy: {
+        timestamp: 'asc',
+      },
+    });
+
+    return transactions.map((tx) => {
+      const txDate = new Date(tx.timestamp);
+      const cycleStartDate = new Date(tx.cycle.startDate);
+      
+      const timeDiff = txDate.getTime() - cycleStartDate.getTime();
+      const dayOfCycle = Math.max(0, Math.floor(timeDiff / (1000 * 60 * 60 * 24)));
+      
+      const cycleDurationTime = new Date(tx.cycle.endDate).getTime() - cycleStartDate.getTime();
+      const totalCycleDays = Math.max(1, Math.ceil(cycleDurationTime / (1000 * 60 * 60 * 24)));
+
+      const phaseProgressPct = Math.min(1.0, dayOfCycle / totalCycleDays);
+
+      return {
+        dayOfCycle,
+        phaseProgressPct,
+        dayOfWeek: txDate.getDay(),
+        category: tx.category,
+        amount: Math.abs(Number(tx.amount)),
+      };
     });
   }
 }
