@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Inbox, Activity, Users, Sparkles } from "lucide-react";
+import { LayoutDashboard, Inbox, Activity, Users, Sparkles, LineChart } from "lucide-react";
 
 const AUTH_ROUTES = ["/login", "/register", "/onboarding"];
 
@@ -7,6 +7,7 @@ const NAV = [
   { to: "/", label: "Kumpas", icon: LayoutDashboard },
   { to: "/ingest", label: "Ingest", icon: Inbox },
   { to: "/simulator", label: "Simulator", icon: Activity },
+  { to: "/analytics", label: "Radar Analytics", icon: LineChart },
   { to: "/bayanihan", label: "Bayanihan", icon: Users },
 ] as const;
 

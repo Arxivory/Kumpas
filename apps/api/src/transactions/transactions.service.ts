@@ -4,10 +4,97 @@ import { CreateManualTransactionDto } from './dto/create-manual-transaction.dto'
 import { CreateCycleDto } from './dto/create-cycle-dto';
 import { CreateWalletDto } from './dto/create-wallet.dto';
 import { UpdateCycleDto } from './dto/update-cycle.dto';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class TransactionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly httpService: HttpService
+  ) {}
+
+  async calculateQuantMetrics(userId: string) {
+    const now = new Date();
+
+    const currentCycle = await this.prisma.allowanceCycle.findFirst({
+      where: { userId },
+      orderBy: { endDate: 'desc' },
+    });
+
+    if (!currentCycle) {
+      throw new NotFoundException('No active cycle tracking config found.');
+    }
+
+    const historyEntries = await this.prisma.transaction.findMany({
+      where: {
+        userId,
+        amount: { lt: 0 },
+      },
+      orderBy: { timestamp: 'asc' },
+    });
+
+    if (historyEntries.length === 0) {
+      return {
+        survivalProbability: 1.0,
+        expectedDepletionDay: null,
+        riskStatus: 'CLEAR_SKIES',
+        driftMu: 0,
+        volatilitySigma: 0,
+      };
+    }
+
+    const dailyMap: Record<string, number> = {};
+    historyEntries.forEach((tx) => {
+      const dateKey = new Date(tx.timestamp).toISOString().split('T')[0];
+      dailyMap[dateKey] = (dailyMap[dateKey] || 0) + Math.abs(Number(tx.amount));
+    });
+
+    const dailySpends = Object.values(dailyMap);
+
+    const totalDays = dailySpends.length;
+    const driftMu = dailySpends.reduce((a, b) => a + b, 0) / totalDays;
+
+    const variance = dailySpends.reduce((sum, val) => sum + Math.pow(val - driftMu, 2), 0) / totalDays;
+    const volatilitySigma = Math.sqrt(variance);
+
+    const targetEnd = new Date(currentCycle.endDate);
+    const timeDiff = targetEnd.getTime() - now.getTime();
+    const daysToDrop = Math.max(0, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
+
+    const wallets = await this.prisma.wallet.findMany({ where: { userId, isActive: true } });
+    const initialBalance = wallets.reduce((sum, w) => sum + Number(w.balance), 0);
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post('http://127.0.0.1:8000/analytics/simulate-runway', {
+          initial_balance: initialBalance,
+          drift_mu: driftMu,
+          volatility_sigma: volatilitySigma,
+          days_to_drop: daysToDrop,
+        })
+      );
+
+      const pythonData = response.data;
+
+      return {
+        survivalProbability: pythonData.survival_probability,
+        expectedDepletionDay: pythonData.expected_depletion_day,
+        riskStatus: pythonData.risk_status,
+        driftMu,
+        volatilitySigma,
+      };
+    } catch (error) {
+      console.error('Python Analytics Node Connection Failed:', error.message);
+      return {
+        survivalProbability: initialBalance / (driftMu || 1) >= daysToDrop ? 0.90 : 0.20,
+        expectedDepletionDay: Math.round(initialBalance / (driftMu || 1)),
+        riskStatus: 'OVERCAST_TURBULENCE',
+        driftMu,
+        volatilitySigma,
+      };
+    }
+  }
 
   async createCustomWallet(dto: CreateWalletDto) {
     return await this.prisma.wallet.create({

@@ -92,4 +92,10 @@ export class TransactionsController {
   ) {
     return await this.transactionsService.updateActiveCycle(cycleId, req.user.id, dto);
   }
+
+  @Get('quant-analytics')
+  @UseGuards(SupabaseAuthGuard)
+  async getQuantAnalytics(@Request() req) {
+    return await this.transactionsService.calculateQuantMetrics(req.user.id);
+  }
 }
