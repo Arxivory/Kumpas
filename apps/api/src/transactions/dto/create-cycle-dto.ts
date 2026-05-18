@@ -1,6 +1,23 @@
+import { IsString, IsNotEmpty, IsNumber, IsOptional } from 'class-validator';
+
 export class CreateCycleDto {
-  userId: string;
+  @IsNumber()
+  @IsNotEmpty()
   amount: number;
-  cadence: 'WEEKLY' | 'BI_WEEKLY' | 'MONTHLY';
+
+  @IsString()
+  @IsNotEmpty()
+  cadence: string;
+
+  @IsString()
+  @IsNotEmpty()
   startDate: string;
+
+  @IsNumber()
+  @IsOptional()
+  initialWalletBalance?: number;
+
+  @IsString()
+  @IsNotEmpty()
+  userId: string;
 }

@@ -2,9 +2,9 @@ import { Controller, Post, Body, UseGuards, Get } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { CreateManualTransactionDto } from './dto/create-manual-transaction.dto';
 import { CreateCycleDto } from './dto/create-cycle-dto';
-import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from 'src/users/get-user.decorator';
 import { SupabaseAuthGuard } from 'src/users/supabase-auth.guard';
+import { CreateWalletDto } from './dto/create-wallet.dto';
 
 @Controller('transactions')
 export class TransactionsController {
@@ -38,5 +38,23 @@ export class TransactionsController {
   @UseGuards(SupabaseAuthGuard)
   async getDashboardSummary(@GetUser() user: { userId: string }) {
     return this.transactionsService.getDashboardSummary(user.userId);
+  }
+
+  @Get('wallets')
+  @UseGuards(SupabaseAuthGuard)
+  async fetchWallets(@GetUser() user: { userId: string }) {
+    return await this.transactionsService.getUserWallets(user.userId);
+  }
+
+  @Post('wallets')
+  @UseGuards(SupabaseAuthGuard)
+  async addNewWallet(@Body() dto: CreateWalletDto, @GetUser() user: { userId: string }) {
+    dto.userId = user.userId;
+    const newWallet = await this.transactionsService.createCustomWallet(dto);
+    return {
+      success: true,
+      message: 'Wallet infrastructure added to ledger account successfully.',
+      data: newWallet,
+    };
   }
 }

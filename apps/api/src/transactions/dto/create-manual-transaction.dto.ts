@@ -1,6 +1,23 @@
+import { IsString, IsNotEmpty, IsNumber, IsOptional } from 'class-validator';
+
 export class CreateManualTransactionDto {
-  userId: string;
+  @IsNumber()
+  @IsNotEmpty()
   amount: number;
-  category: 'FOOD' | 'COMMUTE' | 'DORM' | 'SCHOOL' | 'ADJUSTMENT' | 'ALLOWANCE';
+
+  @IsString()
+  @IsNotEmpty()
+  category: string;
+
+  @IsString()
+  @IsOptional()
   merchant?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  walletId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  userId: string;
 }

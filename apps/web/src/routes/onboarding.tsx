@@ -1,7 +1,8 @@
+// apps/web/src/routes/onboarding.tsx
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Compass, Loader2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { authenticatedFetch } from "../lib/api"; // Ensure this matches your utility path
+import { authenticatedFetch } from "../lib/api";
 
 export const Route = createFileRoute("/onboarding")({
   component: Onboarding,
@@ -18,6 +19,7 @@ const CADENCES = ["Weekly", "Bi-Weekly", "Monthly"] as const;
 function Onboarding() {
   const navigate = useNavigate();
   const [amount, setAmount] = useState("");
+  const [currentWalletBalance, setCurrentWalletBalance] = useState(""); // NEW LIQUIDITY STATE
   const [cadence, setCadence] = useState<(typeof CADENCES)[number]>("Weekly");
   const [date, setDate] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,7 +30,6 @@ function Onboarding() {
     setLoading(true);
     setErrorMsg(null);
 
-    // Map your human-friendly UI labels to the strict backend DTO layout
     let backendCadence: "WEEKLY" | "BI_WEEKLY" | "MONTHLY" = "WEEKLY";
     if (cadence === "Bi-Weekly") backendCadence = "BI_WEEKLY";
     if (cadence === "Monthly") backendCadence = "MONTHLY";
@@ -40,10 +41,11 @@ function Onboarding() {
           amount: parseFloat(amount),
           cadence: backendCadence,
           startDate: new Date(date).toISOString(),
+          // Pass the input explicitly, if left blank, default it to the template amount field
+          initialWalletBalance: currentWalletBalance !== "" ? parseFloat(currentWalletBalance) : parseFloat(amount),
         }),
       });
 
-      // Navigate straight to the dashboard workspace once initialized!
       navigate({ to: "/" });
     } catch (err: any) {
       console.error("Onboarding Cycle Failure:", err);
@@ -80,19 +82,38 @@ function Onboarding() {
             {/* Amount */}
             <div>
               <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Allowance Baseline Amount
+                Allowance Baseline Amount (Your Recurring Budget)
               </label>
-              <div className="mt-4 flex items-baseline gap-2 border-b border-border pb-4 focus-within:border-primary">
+              <div className="mt-3 flex items-baseline gap-2 border-b border-border pb-4 focus-within:border-primary">
                 <span className="font-display text-4xl text-muted-foreground">₱</span>
                 <input
                   type="text"
                   inputMode="decimal"
                   required
-                  autoFocus
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
                   className="w-full bg-transparent font-display text-5xl outline-none placeholder:text-muted-foreground/20"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                How much money is in your wallet right now? (Optional)
+              </label>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Leave blank if it exactly matches your allowance amount.
+              </p>
+              <div className="mt-3 flex items-baseline gap-2 border-b border-border pb-3 focus-within:border-primary">
+                <span className="font-display text-2xl text-muted-foreground">₱</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder={amount || "0.00"}
+                  value={currentWalletBalance}
+                  onChange={(e) => setCurrentWalletBalance(e.target.value.replace(/[^0-9.]/g, ""))}
+                  className="w-full bg-transparent font-display text-3xl outline-none placeholder:text-muted-foreground/20"
                 />
               </div>
             </div>

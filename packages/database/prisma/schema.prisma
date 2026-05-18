@@ -7,17 +7,32 @@ generator client {
 }
 
 model User {
-  id               String            @id @db.Uuid
+  id               String            @id @default(uuid()) @db.Uuid
   email            String            @unique
   username         String            @unique
   firstName        String            @map("first_name")
   lastName         String            @map("last_name")
   createdAt        DateTime          @default(now()) @map("created_at")
+  wallets          Wallet[]
   allowanceCycles  AllowanceCycle[]
   transactions     Transaction[]
   financialWeather FinancialWeather?
 
   @@map("users")
+}
+
+model Wallet {
+  id           String        @id @default(uuid()) @db.Uuid
+  userId       String        @map("user_id") @db.Uuid
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String        @default("New Wallet")
+  isMain       Boolean       @map("is_main") @default(false)
+  balance      Decimal       @default(0.00)
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("wallets")
 }
 
 model AllowanceCycle {
@@ -37,16 +52,18 @@ model Transaction {
   id        String         @id @default(uuid()) @db.Uuid
   userId    String         @map("user_id") @db.Uuid
   cycleId   String         @map("cycle_id") @db.Uuid
+  walletId  String         @map("wallet_id") @db.Uuid
   amount    Decimal        @db.Decimal(10, 2) // Negative for expenses, positive for inflow/allowance
   category  String         // "FOOD", "COMMUTE", "DORM", "SCHOOL", "ADJUSTMENT", "ALLOWANCE"
   merchant  String?
   timestamp DateTime       @default(now())
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   cycle     AllowanceCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  wallet    Wallet         @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
-  // Critical performance indexes for time-series analytics execution
   @@index([userId, timestamp])
   @@index([cycleId])
+  @@index([walletId])
   @@map("transactions")
 }
 
