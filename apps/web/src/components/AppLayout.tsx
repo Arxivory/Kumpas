@@ -51,14 +51,6 @@ export function AppLayout() {
             );
           })}
         </nav>
-
-        <div className="mt-auto rounded-xl border border-border bg-background/50 p-4">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Allowance cycle</div>
-          <div className="mt-1 font-display text-lg">23 days in</div>
-          <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-border">
-            <div className="h-full w-[76%] rounded-full bg-primary" />
-          </div>
-        </div>
       </aside>
 
       {/* Main */}
