@@ -1,5 +1,6 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { LayoutDashboard, Inbox, Activity, Users, Sparkles, LineChart } from "lucide-react";
+import { AgentDrawer } from "@/routes/AgentDrawer";
 
 const AUTH_ROUTES = ["/login", "/register", "/onboarding"];
 
@@ -77,6 +78,8 @@ export function AppLayout() {
           );
         })}
       </nav>
+
+      <AgentDrawer />
     </div>
   );
 }
