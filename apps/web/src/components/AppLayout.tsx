@@ -7,8 +7,7 @@ const NAV = [
   { to: "/", label: "Kumpas", icon: LayoutDashboard },
   { to: "/ingest", label: "Ingest", icon: Inbox },
   { to: "/simulator", label: "Simulator", icon: Activity },
-  { to: "/analytics", label: "Radar Analytics", icon: LineChart },
-  { to: "/bayanihan", label: "Bayanihan", icon: Users },
+  { to: "/analytics", label: "Radar Analytics", icon: LineChart }
 ] as const;
 
 export function AppLayout() {

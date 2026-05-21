@@ -14,7 +14,6 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IngestRouteImport } from './routes/ingest'
-import { Route as BayanihanRouteImport } from './routes/bayanihan'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -43,11 +42,6 @@ const IngestRoute = IngestRouteImport.update({
   path: '/ingest',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BayanihanRoute = BayanihanRouteImport.update({
-  id: '/bayanihan',
-  path: '/bayanihan',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AnalyticsRoute = AnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -62,7 +56,6 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analytics': typeof AnalyticsRoute
-  '/bayanihan': typeof BayanihanRoute
   '/ingest': typeof IngestRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
@@ -72,7 +65,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analytics': typeof AnalyticsRoute
-  '/bayanihan': typeof BayanihanRoute
   '/ingest': typeof IngestRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
@@ -83,7 +75,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/analytics': typeof AnalyticsRoute
-  '/bayanihan': typeof BayanihanRoute
   '/ingest': typeof IngestRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
@@ -95,7 +86,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/analytics'
-    | '/bayanihan'
     | '/ingest'
     | '/login'
     | '/onboarding'
@@ -105,7 +95,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/analytics'
-    | '/bayanihan'
     | '/ingest'
     | '/login'
     | '/onboarding'
@@ -115,7 +104,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/analytics'
-    | '/bayanihan'
     | '/ingest'
     | '/login'
     | '/onboarding'
@@ -126,7 +114,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnalyticsRoute: typeof AnalyticsRoute
-  BayanihanRoute: typeof BayanihanRoute
   IngestRoute: typeof IngestRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
@@ -171,13 +158,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IngestRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/bayanihan': {
-      id: '/bayanihan'
-      path: '/bayanihan'
-      fullPath: '/bayanihan'
-      preLoaderRoute: typeof BayanihanRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/analytics': {
       id: '/analytics'
       path: '/analytics'
@@ -198,7 +178,6 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnalyticsRoute: AnalyticsRoute,
-  BayanihanRoute: BayanihanRoute,
   IngestRoute: IngestRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
