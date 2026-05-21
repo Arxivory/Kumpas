@@ -1,59 +1,137 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { TransactionsService } from '../transactions/transactions.service';
-import { AGENT_TOOLS } from './agent.tools';
-import OpenAI from 'openai';
+import { GoogleGenAI, Type } from '@google/genai';
 
 @Injectable()
 export class AgentService {
-  private openai: OpenAI;
+  private ai: GoogleGenAI;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly transactionsService: TransactionsService,
   ) {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+    this.ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
     });
   }
 
   async processAgentChat(userId: string, incomingMessage: string, history: any[] = []) {
-    const messages: any[] = [
-      {
-        role: 'system',
-        content: `You are Kumpas AI, an intelligent, helpful, and direct financial companion agent for college students. 
-        You have direct access to tools that can check their active wallet health, simulate financial shock outcomes using their specific Python machine learning variables, and record expenses.
-        Always maintain a supportive peer-to-peer tone. Keep explanations clear and action-focused. 
-        When talking about money values, use the Philippine Peso sign (₱). Avoid generic placeholder financial filler advice. Always lean on your actual tool responses.`,
-      },
-      ...history,
-      { role: 'user', content: incomingMessage },
+    const geminiHistory = history.map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }));
+
+    const systemInstruction = `You are Kumpas AI, an intelligent, helpful, and direct financial companion agent for college students. 
+    You have direct access to tools that can check their active wallet health, simulate financial shock outcomes using their specific Python machine learning variables, and record expenses.
+    Always maintain a supportive peer-to-peer tone. Keep explanations clear and action-focused. 
+    When talking about money values, use the Philippine Peso sign (₱). Avoid generic placeholder financial filler advice. Always lean on your actual tool responses.`;
+
+    const tools: any = [
+    {
+        functionDeclarations: [
+        {
+            name: 'checkWalletRunway',
+            description:
+            "Retrieves the user's current total wallet balance, daily spending pace, spending unpredictability, and current runway success rate.",
+        },
+
+        {
+            name: 'testHypotheticalExpense',
+            description:
+            "Runs a predictive simulation to see how a potential large purchase (shock) will impact the user's runway success percentage.",
+
+            parameters: {
+            type: Type.OBJECT,
+            properties: {
+                expenseAmount: {
+                type: Type.NUMBER,
+                description:
+                    'The cost of the item the user wants to buy in PHP (₱).',
+                },
+            },
+            required: ['expenseAmount'],
+            },
+        },
+
+        {
+            name: 'logImmediateExpense',
+            description:
+            "Instantly logs a new expense transaction into the user's ledger database.",
+
+            parameters: {
+            type: Type.OBJECT,
+            properties: {
+                amount: {
+                type: Type.NUMBER,
+                description:
+                    'The exact absolute cost of the expense in PHP (₱). Will be saved as a negative number automatically.',
+                },
+
+                category: {
+                type: Type.STRING,
+                description: 'The transaction category assignment.',
+                enum: [
+                    'FOOD',
+                    'COMMUTE',
+                    'DORM',
+                    'SCHOOL',
+                    'ADJUSTMENT',
+                ],
+                },
+
+                merchant: {
+                type: Type.STRING,
+                description:
+                    'The name of the establishment or store (e.g., "7-Eleven").',
+                },
+            },
+
+            required: ['amount', 'category'],
+            },
+        },
+        ],
+    },
+    ];
+
+    const chatContents = [
+      ...geminiHistory,
+      { role: 'user', parts: [{ text: incomingMessage }] }
     ];
 
     let loopLimit = 0;
-    
+
     while (loopLimit < 4) {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages,
-        tools: AGENT_TOOLS,
-        tool_choice: 'auto',
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: chatContents,
+        config: {
+          systemInstruction,
+          tools,
+        }
       });
 
-      const responseMessage = response.choices[0].message;
-      messages.push(responseMessage);
+      if (response.candidates?.[0]?.content) {
+        chatContents.push(response.candidates[0].content as any);
+      }
 
-      if (!responseMessage.tool_calls || responseMessage.tool_calls.length === 0) {
+      const functionCalls = response.functionCalls;
+
+      if (!functionCalls || functionCalls.length === 0) {
+        const updatedHistory = chatContents.map(c => ({
+          role: c.role === 'model' ? 'assistant' : 'user',
+          content: c.parts?.[0]?.text || 'Processing background actions...'
+        }));
+
         return {
-          answer: responseMessage.content,
-          updatedHistory: messages.filter(m => m.role !== 'system'),
+          answer: response.text,
+          updatedHistory,
         };
       }
 
-      for (const toolCall of responseMessage.tool_calls) {
-        if (toolCall.type !== 'function') continue;
-        const functionName = toolCall.function.name;
-        const functionArgs = JSON.parse(toolCall.function.arguments);
+      for (const call of functionCalls) {
+        const functionName = call.name;
+        const functionArgs = call.args as any;
         let toolOutput: any;
 
         try {
@@ -63,13 +141,11 @@ export class AgentService {
           
           else if (functionName === 'testHypotheticalExpense') {
             const baselines = await this.transactionsService.calculateQuantMetrics(userId);
-            
             const wallets = await this.prisma.wallet.findMany({ where: { userId, isActive: true } });
             const currentTotalBalance = wallets.reduce((sum, w) => sum + Number(w.balance), 0);
-            
             const experimentalBalance = currentTotalBalance - functionArgs.expenseAmount;
 
-            const response = await fetch('http://127.0.0.1:8000/analytics/simulate-runway', {
+            const res = await fetch('http://127.0.0.1:8000/analytics/simulate-runway', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -77,12 +153,12 @@ export class AgentService {
                 drift_mu: baselines.driftMu,
                 volatility_sigma: baselines.volatilitySigma,
                 days_to_drop: Math.max(1, 14 - (baselines.expectedDepletionDay || 0)),
-                current_day_of_cycle: 5, 
+                current_day_of_cycle: 5,
                 current_day_of_week: new Date().getDay(),
               }),
             });
             
-            const simResult = await response.json();
+            const simResult = await res.json();
             toolOutput = {
               newSurvivalProbability: simResult.survival_probability,
               newRiskStatus: simResult.risk_status,
@@ -126,17 +202,20 @@ export class AgentService {
           toolOutput = { error: `Internal tool step failure: ${err.message}` };
         }
 
-        messages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          name: functionName,
-          content: JSON.stringify(toolOutput),
-        });
+        chatContents.push({
+          role: 'user',
+          parts: [{
+            functionResponse: {
+              name: functionName,
+              response: { result: toolOutput }
+            }
+          }]
+        } as any);
       }
 
       loopLimit++;
     }
 
-    throw new Error('Agent execution cycle exceeded loop boundaries.');
+    throw new Error('Gemini agent execution cycle exceeded loop boundaries.');
   }
 }
