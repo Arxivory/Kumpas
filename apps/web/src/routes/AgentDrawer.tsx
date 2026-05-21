@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { authenticatedFetch } from "../lib/api";
 import { Sparkles, X, Send, Loader2, User, Bot } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 interface Message {
   role: "user" | "assistant" | "tool";
@@ -116,7 +117,11 @@ export function AgentDrawer() {
                           ? "bg-primary text-primary-foreground rounded-tr-none" 
                           : "bg-surface border border-border text-foreground rounded-tl-none"
                       }`}>
-                        {msg.content}
+                        <div className="space-y-1 break-words [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-semibold">
+                          <ReactMarkdown>
+                            {msg.content || ""}
+                          </ReactMarkdown>
+                        </div>
                       </div>
                       {isUser && (
                         <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent text-accent-foreground">
