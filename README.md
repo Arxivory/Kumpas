@@ -2,7 +2,7 @@
 
 <img src="./images/Kumpas Preview.png" alt="Kumpas Banner" />
 
-A financial tracking and forecasting tool for Philippine college students. It uses machine learning and simulations to predict spending patterns, helping prevent early wallet depletion.
+An Agentic AI financial tracking and forecasting tool for Philippine college students. It uses machine learning and simulations to predict spending patterns, helping prevent early wallet depletion.
 
 ---
 
@@ -28,7 +28,7 @@ Most trackers only show past expenses. Students often overspend right after allo
 - **Spend Regression** – Ridge Regression to capture surges and weekend spikes
 - **Monte Carlo Simulator** – Runs 1,000 scenarios using drift + volatility
 - **Radar UI** – Shows success rates, pace, unpredictability, and “financial weather”
-- **Bayanihan Portal** – Future feature for group finance management
+- **Agentic AI** - Checks financial weather and guides on how to manage finance properlys
 
 ---
 
