@@ -6,10 +6,14 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  redirect,
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
 import { AppLayout } from "@/components/AppLayout";
+import { supabase } from "@/lib/api";
+
+const PUBLIC_ROUTES = ["/login", "/signup", "/welcome"];
 
 function NotFoundComponent() {
   return (
@@ -69,6 +73,25 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  beforeLoad: async ({ location }) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const isPublicPath = PUBLIC_ROUTES.includes(location.pathname);
+
+    if (!session && !isPublicPath) {
+      throw redirect({
+        to: "/login",
+        search: {
+          redirect: location.href,
+        },
+      });
+    }
+
+    if (session && isPublicPath) {
+      throw redirect({ to: "/" });
+    }
+    
+    return { session };
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -113,10 +136,19 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { location } = useRouter().state;
+  
+  const isPublicPath = PUBLIC_ROUTES.includes(location.pathname);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppLayout />
+      {isPublicPath ? (
+        <main className="min-h-screen w-full bg-background">
+          <Outlet />
+        </main>
+      ) : (
+        <AppLayout />
+      )}
     </QueryClientProvider>
   );
 }
