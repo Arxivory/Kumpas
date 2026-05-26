@@ -28,7 +28,7 @@ Most trackers only show past expenses. Students often overspend right after allo
 - **Spend Regression** – Ridge Regression to capture surges and weekend spikes
 - **Monte Carlo Simulator** – Runs 1,000 scenarios using drift + volatility
 - **Radar UI** – Shows success rates, pace, unpredictability, and “financial weather”
-- **Agentic AI** - Checks financial weather and guides on how to manage finance properlys
+- **Agentic AI** - Checks financial weather and guides on how to manage finance proactively
 
 ---
 
